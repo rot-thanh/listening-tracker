@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Listening Daily Tracker - Cô & Trò</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans pb-12">
+
+  <!-- Header -->
+  <header class="bg-indigo-600 text-white shadow-md">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-headphones-simple text-2xl"></i>
+        <div>
+          <h1 class="text-xl font-bold leading-tight">Listening Daily Tracker</h1>
+          <p class="text-indigo-200 text-xs" id="syncStatus">Đang kết nối dữ liệu...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Chuyển đổi vai trò -->
+        <div class="bg-indigo-800 p-1 rounded-lg flex text-sm font-medium">
+          <button id="btnStudent" onclick="setRole('student')" class="px-3 py-1.5 rounded-md bg-white text-indigo-700 shadow-sm transition">
+            <i class="fa-solid fa-user-graduate mr-1"></i> Học sinh
+          </button>
+          <button id="btnTeacher" onclick="setRole('teacher')" class="px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition">
+            <i class="fa-solid fa-chalkboard-user mr-1"></i> Cô giáo
+          </button>
+        </div>
+
+        <!-- Nút cài đặt đồng bộ 2 người -->
+        <button onclick="toggleConfigModal()" class="bg-indigo-500 hover:bg-indigo-400 px-3 py-2 rounded-lg text-sm transition" title="Cài đặt đồng bộ 2 người">
+          <i class="fa-solid fa-cloud"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 mt-6 space-y-6">
+
+    <!-- Thống kê & Bảng Tick Ngày Học -->
+    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-regular fa-calendar-check text-emerald-500"></i>
+            Bảng Tick Ngày Làm Bài (<span id="currentMonthLabel"></span>)
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">Click vào từng ngày để tick nhanh, hoặc nộp bài bên dưới để hệ thống tự động tick.</p>
+        </div>
+
+        <div class="flex gap-3">
+          <div class="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-center">
+            <span class="block text-xs text-emerald-600 font-medium">Đã hoàn thành</span>
+            <span class="text-lg font-bold text-emerald-700" id="statCompleted">0 ngày</span>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl text-center">
+            <span class="block text-xs text-amber-600 font-medium">Bài đã nộp</span>
+            <span class="text-lg font-bold text-amber-700" id="statSubmissions">0 bài</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid các ngày trong tháng -->
+      <div id="calendarGrid" class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-11 gap-2 mt-4"></div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Cột trái: Form nộp bài -->
+      <section class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-paper-plane text-indigo-500"></i> Nộp Kết Quả Ngày
+        </h2>
+
+        <form id="submissionForm" onsubmit="submitListening(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Ngày làm bài *</label>
+            <input type="date" id="inputDate" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tên bài nghe / Nguồn đề *</label>
+            <input type="text" id="inputTitle" required placeholder="VD: Cam 18 Test 1 - Part 2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Số câu đúng *</label>
+              <input type="number" id="inputCorrect" required min="0" placeholder="VD: 8" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tổng số câu *</label>
+              <input type="number" id="inputTotal" required min="1" placeholder="VD: 10" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Link bài / Ảnh chụp (Nếu có)</label>
+            <input type="url" id="inputLink" placeholder="https://..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Ghi chú lỗi sai / Từ vựng mới</label>
+            <textarea id="inputNotes" rows="3" placeholder="Nghe nhầm âm đuôi s/ed, từ mới: itinerary..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+          </div>
+
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check-double"></i> Lưu & Tick Hoàn Thành
+          </button>
+        </form>
+      </section>
+
+      <!-- Cột phải: Danh sách bài nộp & Nhận xét của cô -->
+      <section class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-indigo-500"></i> Nhật Ký Bài Làm & Nhận Xét Của Cô
+          </h2>
+          <button onclick="loadData()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+            <i class="fa-solid fa-rotate"></i> Làm mới
+          </button>
+        </div>
+
+        <div id="logsContainer" class="space-y-4"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal kết nối Firebase để 2 người dùng chung -->
+  <div id="configModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-lg">Kết nối dữ liệu 2 người (Cloud Sync)</h3>
+        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        Đường dẫn <strong>Firebase Realtime Database URL</strong> hiện tại:
+      </p>
+      <input type="url" id="firebaseUrlInput" placeholder="https://ten-project-default-rtdb.firebaseio.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="toggleConfigModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Đóng</button>
+        <button onclick="saveFirebaseConfig()" class="px-4 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Lưu kết nối</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Đã gắn sẵn link Firebase của bạn:
+    const DEFAULT_FIREBASE_URL = "https://listening-tracker-25855-default-rtdb.firebaseio.com"; 
+
+    let currentRole = 'student';
+    let appData = {
+      tickedDates: {},
+      logs: []
+    };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    document.getElementById('inputDate').value = todayStr;
+
+    function getFirebaseUrl() {
+      return (localStorage.getItem('listening_fb_url') || DEFAULT_FIREBASE_URL).replace(/\/$/, "");
+    }
+
+    // Tải dữ liệu từ Cloud hoặc LocalStorage
+    async function loadData() {
+      const fbUrl = getFirebaseUrl();
+      const statusEl = document.getElementById('syncStatus');
+
+      if (fbUrl) {
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Đang đồng bộ Cloud...`;
+        try {
+          const res = await fetch(`${fbUrl}/listeningTracker.json`);
+          const data = await res.json();
+          if (data) {
+            appData.tickedDates = data.tickedDates || {};
+            appData.logs = data.logs || [];
+          } else {
+            appData.tickedDates = {};
+            appData.logs = [];
+          }
+          statusEl.innerHTML = `<span class="text-emerald-300"><i class="fa-solid fa-cloud-check mr-1"></i> Đã kết nối đồng bộ 2 người</span>`;
+        } catch (err) {
+          statusEl.innerHTML = `<span class="text-rose-300">Lỗi kết nối Cloud - Đang dùng bộ nhớ máy</span>`;
+        }
+      } else {
+        const saved = localStorage.getItem('listening_tracker_data');
+        if (saved) appData = JSON.parse(saved);
+        statusEl.textContent = "Chế độ: Lưu trên máy (Bấm icon đám mây để đồng bộ 2 người)";
+      }
+      renderAll();
+    }
+
+    // Lưu dữ liệu
+    async function saveData() {
+      localStorage.setItem('listening_tracker_data', JSON.stringify(appData));
+      const fbUrl = getFirebaseUrl();
+      if (fbUrl) {
+        try {
+          await fetch(`${fbUrl}/listeningTracker.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appData)
+          });
+        } catch (e) {
+          alert("Không thể đồng bộ lên Cloud, vui lòng kiểm tra lại quyền truy cập (Rules) trên Firebase!");
+        }
+      }
+      renderAll();
+    }
+
+    // Chuyển đổi chế độ Học sinh / Cô giáo
+    function setRole(role) {
+      currentRole = role;
+      const btnS = document.getElementById('btnStudent');
+      const btnT = document.getElementById('btnTeacher');
+      if (role === 'student') {
+        btnS.className = "px-3 py-1.5 rounded-md bg-white text-indigo-700 shadow-sm transition";
+        btnT.className = "px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition";
+      } else {
+        btnT.className = "px-3 py-1.5 rounded-md bg-white text-indigo-700 shadow-sm transition";
+        btnS.className = "px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition";
+      }
+      renderLogs();
+    }
+
+    // Bấm tick/bỏ tick ngày trên lịch
+    async function toggleDateTick(dateStr) {
+      if (appData.tickedDates[dateStr]) {
+        delete appData.tickedDates[dateStr];
+      } else {
+        appData.tickedDates[dateStr] = true;
+      }
+      await saveData();
+    }
+
+    // Render Bảng Tick Ngày trong tháng hiện tại
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      document.getElementById('currentMonthLabel').textContent = `Tháng ${month + 1}/${year}`;
+
+      let completedCount = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isTicked = !!appData.tickedDates[dayStr];
+        const hasLog = appData.logs.some(l => l.date === dayStr);
+        if (isTicked) completedCount++;
+
+        const isToday = dayStr === todayStr;
+
+        const btn = document.createElement('button');
+        btn.onclick = () => toggleDateTick(dayStr);
+        btn.className = `p-2 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 relative ${
+          isTicked 
+            ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm' 
+            : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-indigo-400'
+        } ${isToday ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`;
+
+        btn.innerHTML = `
+          <span class="text-[11px] font-semibold">Ngày ${d}</span>
+          <i class="fa-solid ${isTicked ? 'fa-circle-check text-white text-base' : 'fa-circle text-slate-200 text-base'}"></i>
+          ${hasLog ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-300 absolute top-1.5 right-1.5" title="Đã có bài nộp"></span>' : ''}
+        `;
+        grid.appendChild(btn);
+      }
+
+      document.getElementById('statCompleted').textContent = `${completedCount}/${daysInMonth} ngày`;
+      document.getElementById('statSubmissions').textContent = `${appData.logs.length} bài`;
+    }
+
+    // Xử lý khi học sinh nộp bài
+    async function submitListening(e) {
+      e.preventDefault();
+      const date = document.getElementById('inputDate').value;
+      const title = document.getElementById('inputTitle').value.trim();
+      const correct = Number(document.getElementById('inputCorrect').value);
+      const total = Number(document.getElementById('inputTotal').value);
+      const link = document.getElementById('inputLink').value.trim();
+      const notes = document.getElementById('inputNotes').value.trim();
+
+      const newLog = {
+        id: Date.now(),
+        date,
+        title,
+        correct,
+        total,
+        link,
+        notes,
+        teacherComment: "",
+        reviewed: false
+      };
+
+      appData.logs.unshift(newLog);
+      appData.tickedDates[date] = true; // Tự động tick ngày đó trên lịch
+
+      document.getElementById('inputTitle').value = '';
+      document.getElementById('inputCorrect').value = '';
+      document.getElementById('inputTotal').value = '';
+      document.getElementById('inputLink').value = '';
+      document.getElementById('inputNotes').value = '';
+
+      await saveData();
+    }
+
+    // Cô giáo lưu nhận xét & đánh dấu đã chấm
+    async function saveTeacherFeedback(id) {
+      const commentInput = document.getElementById(`comment-${id}`);
+      const item = appData.logs.find(l => l.id === id);
+      if (item && commentInput) {
+        item.teacherComment = commentInput.value.trim();
+        item.reviewed = true;
+        await saveData();
+      }
+    }
+
+    // Xóa bài nộp
+    async function deleteLog(id) {
+      if (!confirm("Bạn có chắc muốn xóa bản ghi này?")) return;
+      appData.logs = appData.logs.filter(l => l.id !== id);
+      await saveData();
+    }
+
+    // Render danh sách bài nộp
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+      if (!appData.logs || appData.logs.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+            <p class="text-sm">Chưa có bài Listening nào được nộp.</p>
+          </div>`;
+        return;
+      }
+
+      // Sắp xếp mới nhất lên đầu
+      const sorted = [...appData.logs].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      container.innerHTML = sorted.map(item => {
+        const percent = Math.round((item.correct / item.total) * 100);
+        const badgeColor = percent >= 80 ? 'bg-emerald-100 text-emerald-700' : percent >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700';
+
+        return `
+          <div class="p-4 rounded-xl border ${item.reviewed ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200 bg-white'} shadow-sm space-y-3">
+            <div class="flex flex-wrap justify-between items-start gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-100">
+                    <i class="fa-regular fa-calendar mr-1"></i>${item.date}
+                  </span>
+                  ${item.reviewed 
+                    ? `<span class="text-xs font-semibold text-emerald-600 flex items-center gap-1"><i class="fa-solid fa-check-circle"></i> Cô đã xem</span>` 
+                    : `<span class="text-xs font-medium text-amber-600"><i class="fa-regular fa-clock"></i> Chờ cô xem</span>`
+                  }
+                </div>
+                <h3 class="font-bold text-slate-800 mt-1.5 text-base">${item.title}</h3>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="px-3 py-1 rounded-lg font-bold text-sm ${badgeColor}">
+                  ${item.correct}/${item.total} (${percent}%)
+                </span>
+                <button onclick="deleteLog(${item.id})" class="text-slate-300 hover:text-rose-500 p-1" title="Xóa">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            ${item.notes ? `<p class="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100"><strong>Ghi chú HS:</strong> ${item.notes}</p>` : ''}
+            
+            ${item.link ? `<a href="${item.link}" target="_blank" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline"><i class="fa-solid fa-link"></i> Xem link đính kèm / Ảnh bài làm</a>` : ''}
+
+            <!-- Khu vực nhận xét của cô giáo -->
+            ${currentRole === 'teacher' ? `
+              <div class="pt-3 border-t border-slate-100 flex gap-2">
+                <input type="text" id="comment-${item.id}" value="${item.teacherComment || ''}" placeholder="Nhập nhận xét của cô giáo..." class="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                <button onclick="saveTeacherFeedback(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shrink-0">
+                  <i class="fa-solid fa-check mr-1"></i> Duyệt & Lưu
+                </button>
+              </div>
+            ` : (item.teacherComment ? `
+              <div class="pt-2">
+                <div class="bg-indigo-50/70 border border-indigo-100 text-indigo-900 text-sm p-3 rounded-lg flex items-start gap-2">
+                  <i class="fa-solid fa-comment-dots text-indigo-500 mt-0.5"></i>
+                  <div><strong>Nhận xét của Cô:</strong> ${item.teacherComment}</div>
+                </div>
+              </div>
+            ` : '')}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAll() {
+      renderCalendar();
+      renderLogs();
+    }
+
+    function toggleConfigModal() {
+      const modal = document.getElementById('configModal');
+      document.getElementById('firebaseUrlInput').value = getFirebaseUrl();
+      modal.classList.toggle('hidden');
+      modal.classList.toggle('flex');
+    }
+
+    function saveFirebaseConfig() {
+      const url = document.getElementById('firebaseUrlInput').value.trim();
+      localStorage.setItem('listening_fb_url', url);
+      toggleConfigModal();
+      loadData();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
